@@ -1,1 +1,58 @@
 Notes for commands of NS3
+
+build ns3 project with waf
+  ./waf clean
+  ./waf -d optimized --enable-examples --enable-tests configure
+  OR
+  ./waf -d debug --enable-examples --enable-tests configure
+  
+  run ./waf --help for more 
+  
+  it is possible to specify that waf builds the project in a 
+  directory different than the default build/ directory by passing the -o option to configure; 
+  e.g.
+    ./waf -d debug -o build/debug --enable-examples --enable-tests configure
+    
+Running a script
+  ./waf --run hello-simulator
+  If you don’t see waf messages indicating that the build was completed successfully, 
+  but do not see the “Hello Simulator” output, chances are that you have switched your 
+  build mode to “optimized” in the “Building with Waf” section, but have missed the change
+  back to “debug” mode. All of the console output used in this tutorial uses a special ns-3 
+  logging component that is useful for printing user messages to the console. Output from 
+  this component is automatically disabled when you compile optimized code –
+  it is “optimized out.” If you don’t see the “Hello Simulator” output, type the following,
+    ./waf -d debug --enable-examples --enable-tests configure
+    THEN
+    ./waf
+    
+    
+Conceptual Overview
+  Node: 
+    You can add things like applications, protocol stacks, peripheral cards with their associted drivers
+  Application: 
+  Channel:
+    class provides methods for managing communication subnetwork objects and connecting nodes to them
+    ex:
+      CsmaChannel, PointToPointChannel, WifiChannel
+  NetDevice:
+    In ns-3 the net device abstraction covers both the software driver and the simulated hardware
+    A net device is “installed” in a Node in order to enable the Node to communicate with other 
+    Nodes in the simulation via Channels
+    The NetDevice class provides methods for managing connections to Node and Channel objects
+    
+    ust as an Ethernet NIC is designed to work with an Ethernet network,
+      the CsmaNetDevice is designed to work with a CsmaChannel;
+      PointToPointNetDevice is designed to work with a PointToPointChannel
+      WifiNetNevice is designed to work with a WifiChannel.
+      
+      
+Topology Helpers      
+      
+ 
+      
+      
+      
+      
+      
+    
