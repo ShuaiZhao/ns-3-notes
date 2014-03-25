@@ -1,4 +1,6 @@
 Notes for commands of NS3
+http://www.nsnam.org/docs/release/3.14/tutorial/singlehtml/index.html#id1
+
 
 build ns3 project with waf
   ./waf clean
@@ -48,11 +50,140 @@ Conceptual Overview
       
       
 Topology Helpers      
+
+  NodeContainer
+    NodeContainer nodes;
+    nodes.Create (2);
+  PointToPointHelper
+    PointToPointHelper pointToPoint;
+    pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
+    pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
+  NetDeviceContainer :  return a list of all of the NetDevice objects that are created
+    NetDeviceContainer devices;
+    devices = pointToPoint.Install (nodes);
+  # We now have nodes and devices configured, but we don’t have any protocol stacks installed on our node
+  InternetStackHelper
+    InternetStackHelper stack;
+    stack.Install (nodes); # it will install an Internet Stack
+          (TCP, UDP, IP, etc.) on each of the nodes in the node container.
+  Ipv4AddressHelper
+    Ipv4AddressHelper address;
+    address.SetBase ("10.1.1.0", "255.255.255.0");
+    # next line performs the actual address assignment.
+    Ipv4InterfaceContainer interfaces = address.Assign (devices);
+    
+  # Now we have a point-to-point network built, with stacks installed and IP addresses assigned. 
+  What we need at this point are applications to generate traffic. 
+  
+  Applications
+    UdpEchoServerHelper
+      UdpEchoServerHelper echoServer (9);
+      ApplicationContainer serverApps = echoServer.Install (nodes.Get (1));
+      serverApps.Start (Seconds (1.0));
+      serverApps.Stop (Seconds (10.0));
       
+    UdpEchoClientHelper
+      UdpEchoClientHelper echoClient (interfaces.GetAddress (1), 9);
+      echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
+      echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
+      echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
+
+      ApplicationContainer clientApps = echoClient.Install (nodes.Get (0));
+      clientApps.Start (Seconds (2.0));
+      clientApps.Stop (Seconds (10.0));
+    
+  Simulator
+    Simulator::Run ();
+    Simulator::Destroy ();
  
+
+Building Your script
+  All you have to do is to drop your script into the scratch directory and
+  it will automatically be built if you run Waf.
+  
+  cp examples/tutorial/first.cc scratch/myfirst.cc  
+  ./waf
+  
+  Now you can run the examples
+  ./waf --run scratch/myfirst --vis
+  
+ 
+Enabling Logging
+  LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
+  
+  We can increase the logging level and get more information without
+  changing the script and recompiling by setting the NS_LOG environment variable like this:
+
+  export NS_LOG=UdpEchoClientApplication=level_all
+  
+  
+Using Command Line Arguments
+  
+  CommandLine cmd;
+  cmd.Parse (argc, argv);
+  
+  ./waf --run "scratch/first --PrintHelp" 
+  # The quotes are required to sort out which program gets which argument
+  
+  ./waf --run "scratch/myfirst --PrintAttributes=ns3::PointToPointNetDevice"
+  # The system will print out all of the Attributes of this kind of net device. 
+  # Among the Attributes you will see listed is,
+  
+  ./waf --run "scratch/first --PrintAttributes=ns3::PointToPointNetDevice"
+  # The system will print out all of the Attributes of this kind of net device "PointToPointNetDevice"
+  
+  ./waf --run "scratch/first --ns3::PointToPointNetDevice::DataRate=5Mbps"
+  # This will set the default value of the DataRate Attribute back to five megabits per second
+  
+  # We can then set both of these default values through the command line system,
+  ./waf --run "scratch/myfirst
+    --ns3::PointToPointNetDevice::DataRate=5Mbps
+    --ns3::PointToPointChannel::Delay=2ms
+    --ns3::UdpEchoClient::MaxPackets=2"
+  
+Hooking Your Own Values
+  
+  uint32_t nPackets = 1;
+
+  CommandLine cmd;
+  cmd.AddValue("nPackets", "Number of packets to echo", nPackets);
+  cmd.Parse (argc, argv);
+  ...
+  echoClient.SetAttribute ("MaxPackets", UintegerValue (nPackets));
+  
+  then run
+  ./waf --run "scratch/first --nPackets=2"
+  
+Using the Tracing System
+  ASCII Tracing
+    # add following at the end file before start,
+    AsciiTraceHelper ascii;
+    pointToPoint.EnableAsciiAll (ascii.CreateFileStream ("myfirst.tr"));
+  
+    Parsing Ascii Traces( myfirst.tr file)
+      +: An enqueue operation occurred on the device queue;
+      -: A dequeue operation occurred on the device queue;
+      d: A packet was dropped, typically because the queue was full;
+      r: A packet was received by the net device.
+    
+  PCAP Tracing
+    <name>-<node>-<device>.pcap
+    pointToPoint.EnablePcapAll ("myfirst");
+    #  Notice that we only passed the string “myfirst,” and not “myfirst.pcap”
+    # eventually see files named “myfirst-0-0.pcap” and “myfirst-1-0.pcap” 
+    # which are the pcap traces for "node 0-device 0" and "node 1-device 0", respectively.
+    
+    Reading output with tcpdump
+      tcpdump -nn -tt -r myfirst-0-0.pcap
+      tcpdump -nn -tt -r myfirst-1-0.pcap
       
-      
-      
-      
-      
+    Reading output with Wireshark
+    
+    
+Building Topologies
+  
+    
+Building a Wireless Network Topology   
+    
+    
     
