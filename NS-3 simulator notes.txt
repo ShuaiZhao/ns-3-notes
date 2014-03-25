@@ -184,6 +184,125 @@ Building Topologies
   
     
 Building a Wireless Network Topology   
-    
-    
-    
+  #include "ns3/core-module.h"
+  #include "ns3/point-to-point-module.h"
+  #include "ns3/network-module.h"
+  #include "ns3/applications-module.h"
+  #include "ns3/wifi-module.h"
+  #include "ns3/mobility-module.h"
+  #include "ns3/csma-module.h"
+  #include "ns3/internet-module.h"
+  
+  # setup the wifi channel:
+
+  YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
+  YansWifiPhyHelper phy = YansWifiPhyHelper::Default () 
+  phy.SetChannel (channel.Create ())
+  
+  # Once the PHY helper is configured, we can focus on the MAC layer
+  WifiHelper wifi = WifiHelper::Default ();
+  wifi.SetRemoteStationManager ("ns3::AarfWifiManager");
+  NqosWifiMacHelper mac = NqosWifiMacHelper::Default ();
+  
+  # Next, we configure the type of MAC, the SSID of the infrastructure network we want to 
+  # setup and make sure that our stations don’t perform active probing:
+  Ssid ssid = Ssid ("ns-3-ssid");
+  mac.SetType ("ns3::StaWifiMac",
+  "Ssid", SsidValue (ssid),
+  "ActiveProbing", BooleanValue (false));
+  
+  #  create adhoc devices on this channel:
+
+  NetDeviceContainer staDevices;
+  staDevices = wifi.Install (phy, mac, wifiStaNodes);
+  mac.SetType ("ns3::ApWifiMac",
+             "Ssid", SsidValue (ssid));
+             
+  # The next lines create the single AP which shares the same set of PHY-level Attributes 
+  # (and channel) as the stations:
+  NetDeviceContainer apDevices;
+  apDevices = wifi.Install (phy, mac, wifiApNode);
+  
+  # Now, we are going to add mobility models.
+  MobilityHelper mobility;
+
+  mobility.SetPositionAllocator ("ns3::GridPositionAllocator",
+    "MinX", DoubleValue (0.0),
+    "MinY", DoubleValue (0.0),
+    "DeltaX", DoubleValue (5.0),
+    "DeltaY", DoubleValue (10.0),
+    "GridWidth", UintegerValue (3),
+    "LayoutType", StringValue ("RowFirst"));
+  
+  # We have arranged our nodes on an initial grid, but now we need to tell them how to move. 
+  mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
+  "Bounds", RectangleValue (Rectangle (-50, 50, -50, 50)));
+  
+  # We now tell the MobilityHelper to install the mobility models on the STA nodes
+  mobility.Install (wifiStaNodes);
+  
+  # We want the access point to remain in a fixed position during the simulation.
+  mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+  mobility.Install (wifiApNode);
+
+  # We now have our nodes, devices and channels created, and mobility models chosen for the Wifi nodes,
+  # but we have no protocol stacks present. 
+  # Just as we have done previously many times, we will use the InternetStackHelper to install these stack
+  InternetStackHelper stack;
+  stack.Install (csmaNodes);
+  stack.Install (wifiApNode);
+  stack.Install (wifiStaNodes);
+
+  Ipv4AddressHelper address;
+
+  address.SetBase ("10.1.1.0", "255.255.255.0");
+  Ipv4InterfaceContainer p2pInterfaces;
+  p2pInterfaces = address.Assign (p2pDevices);
+  
+  address.SetBase ("10.1.2.0", "255.255.255.0");
+  Ipv4InterfaceContainer csmaInterfaces;
+  csmaInterfaces = address.Assign (csmaDevices);
+  
+  address.SetBase ("10.1.3.0", "255.255.255.0");
+  address.Assign (staDevices);
+  address.Assign (apDevices);
+  
+  UdpEchoServerHelper echoServer (9);
+
+  ApplicationContainer serverApps = echoServer.Install (csmaNodes.Get (nCsma));
+  serverApps.Start (Seconds (1.0));
+  
+  
+  UdpEchoClientHelper echoClient (csmaInterfaces.GetAddress (nCsma), 9);
+  echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
+  echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
+  echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
+  
+  ApplicationContainer clientApps =
+    echoClient.Install (wifiStaNodes.Get (nWifi - 1));
+  clientApps.Start (Seconds (2.0));
+  clientApps.Stop (Seconds (10.0));
+  
+  
+  Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+  
+  # We create just enough tracing to cover all three networks:
+  
+  pointToPoint.EnablePcapAll ("third");
+  phy.EnablePcap ("third", apDevices.Get (0));
+  csma.EnablePcap ("third", csmaDevices.Get (0), true)
+    serverApps.Stop (Seconds (10.0))
+  
+Example containers:
+  NodeContainer
+  NetDeviceContainer
+  Ipv4AddressContainer
+Example helper classes:
+  InternetStackHelper
+  WifiHelper
+  MobilityHelper
+  OlsrHelper
+  etc. Each model provides a helper class
+  
+
+
